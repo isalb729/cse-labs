@@ -1,0 +1,11 @@
+#!/bin/bash
+./stop.sh
+./start.sh
+# f1=test-lab2-part1-$1.pl
+# f2=test-lab2-part1-$1.sh
+# if test -f $f1; then
+#     ./$f1 ./yfs1
+# else
+#    ./$f2 ./yfs1
+# fi
+./test-lab2-part2-a yfs1 yfs2
