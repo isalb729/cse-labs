@@ -11,7 +11,8 @@
 
 class extent_server {
 private:
-    std::map<extent_protocol::extentid_t, std::set<std::string> > cset;
+    // std::map<extent_protocol::extentid_t, std::set<std::string> > cset;
+    std::set<std::string> allc;
 protected:
 #if 0
     typedef struct extent {
@@ -35,12 +36,4 @@ public:
 
     int remove(extent_protocol::extentid_t id, std::string cid, int &);
 };
-
-#endif 
-
-
-
-
-
-
-
+#endif

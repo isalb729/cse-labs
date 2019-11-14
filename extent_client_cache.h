@@ -17,13 +17,14 @@ class extent_client_cache : public extent_client {
 private:
     class extent_release_user *lu;
 
+    bool firstReq;
     int rextent_port;
     std::string hostname;
     std::string cid;
     pthread_mutex_t mux;
 
     std::map<extent_protocol::extentid_t, extent_protocol::attr> attr_cache{};
-    std::map<extent_protocol::extentid_t, std::string > content_cache{};
+    std::map<extent_protocol::extentid_t, std::string> content_cache{};
 public:
     extent_client_cache(std::string dst, class extent_release_user *l = 0);
 

@@ -24,6 +24,7 @@ extent_client_cache::extent_client_cache(std::string dst,
     rlsrpc->reg(rextent_protocol::reset_attr, this, &extent_client_cache::reset_attr_handler);
     rlsrpc->reg(rextent_protocol::reset_content, this, &extent_client_cache::reset_content_handler);
     mux = PTHREAD_MUTEX_INITIALIZER;
+    firstReq = false;
 };
 
 extent_protocol::status
@@ -40,12 +41,14 @@ extent_client_cache::create(uint32_t type, extent_protocol::extentid_t &id) {
         attr_cache[id] = attr;
         content_cache[id] = "";
     }
+    firstReq = true;
     return ret;
 }
 
 extent_protocol::status
 extent_client_cache::get(extent_protocol::extentid_t eid, std::string &buf) {
     extent_protocol::status ret = extent_protocol::OK;
+    firstReq = true;
     if (content_cache.find(eid) != content_cache.end()) {
         buf = content_cache[eid];
     } else {
@@ -61,6 +64,7 @@ extent_protocol::status
 extent_client_cache::getattr(extent_protocol::extentid_t eid,
                              extent_protocol::attr &attr) {
     extent_protocol::status ret = extent_protocol::OK;
+    firstReq = true;
     if (attr_cache.find(eid) != attr_cache.end()) {
         attr = attr_cache[eid];
         return ret;
@@ -77,6 +81,10 @@ extent_protocol::status
 extent_client_cache::put(extent_protocol::extentid_t eid, std::string buf) {
     int r;
     extent_protocol::status ret = extent_protocol::OK;
+    firstReq = true;
+    if (content_cache.find(eid) != content_cache.end() && content_cache[eid] == buf) {
+        return ret;
+    }
     ret = cl->call(extent_protocol::put, eid, buf, cid, r);
     if (ret == extent_protocol::OK) {
         content_cache[eid] = buf;
@@ -88,7 +96,8 @@ extent_protocol::status
 extent_client_cache::remove(extent_protocol::extentid_t eid) {
     int r;
     extent_protocol::status ret = extent_protocol::OK;
-    ret = cl->call(extent_protocol::remove, eid, cid, r);
+    if (content_cache.find(eid) != content_cache.end() || !firstReq)
+        ret = cl->call(extent_protocol::remove, eid, cid, r);
     return ret;
 }
 

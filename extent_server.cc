@@ -9,6 +9,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+
 #define prt(s, ...) do { \
   FILE *f = fopen("./try", "a+"); \
   fprintf(f, s, ##__VA_ARGS__); \
@@ -17,14 +18,12 @@
 
 extent_server::extent_server() {
     im = new inode_manager();
-    cset[1] = std::set<std::string>{};
+    allc = std::set<std::string>{};
 }
 
 int extent_server::create(uint32_t type, std::string cid, extent_protocol::extentid_t &id) {
-    // alloc a new inode and return inum
     id = im->alloc_inode(type);
-    cset[id] = std::set<std::string>{};
-    cset[id].insert(cid);
+    allc.insert(cid);
     return extent_protocol::OK;
 }
 
@@ -36,15 +35,11 @@ int extent_server::put(extent_protocol::extentid_t id, std::string buf, std::str
     im->write_file(id, cbuf, size);
     int r;
     extent_protocol::attr attr;
+    allc.insert(cid);
     im->getattr(id, attr);
-    if (cset.find(id) != cset.end()) {
-        cset[id].insert(cid);
-        for (std::set<std::string>::iterator it = cset[id].begin(); it != cset[id].end(); it++) {
-            handle(*it).safebind()->call(rextent_protocol::reset_attr, id, attr, r);
-            handle(*it).safebind()->call(rextent_protocol::reset_content, id, buf, r);
-        }
-    } else {
-        assert(0);
+    for (std::set<std::string>::iterator it = allc.begin(); it != allc.end(); it++) {
+        handle(*it).safebind()->call(rextent_protocol::reset_attr, id, attr, r);
+        handle(*it).safebind()->call(rextent_protocol::reset_content, id, buf, r);
     }
     return extent_protocol::OK;
 }
@@ -57,6 +52,7 @@ int extent_server::get(extent_protocol::extentid_t id, std::string cid, std::str
     char *cbuf = NULL;
 
     im->read_file(id, &cbuf, &size);
+    allc.insert(cid);
     if (size == 0)
         buf = "";
     else {
@@ -65,14 +61,9 @@ int extent_server::get(extent_protocol::extentid_t id, std::string cid, std::str
     }
     extent_protocol::attr attr;
     im->getattr(id, attr);
-    if (cset.find(id) != cset.end()) {
-        cset[id].insert(cid);
-        for (std::set<std::string>::iterator it = cset[id].begin(); it != cset[id].end(); it++) {
-            int r;
-            handle(*it).safebind()->call(rextent_protocol::reset_attr, id, attr, r);
-        }
-    } else {
-        assert(0);
+    for (std::set<std::string>::iterator it = allc.begin(); it != allc.end(); it++) {
+        int r;
+        handle(*it).safebind()->call(rextent_protocol::reset_attr, id, attr, r);
     }
     return extent_protocol::OK;
 }
@@ -82,14 +73,10 @@ int extent_server::getattr(extent_protocol::extentid_t id, std::string cid, exte
     id &= 0x7fffffff;
 
     extent_protocol::attr attr;
+    allc.insert(cid);
     memset(&attr, 0, sizeof(attr));
     im->getattr(id, attr);
     a = attr;
-    if (cset.find(id) != cset.end()) {
-        cset[id].insert(cid);
-    } else {
-        assert(0);
-    }
     return extent_protocol::OK;
 }
 
@@ -98,11 +85,8 @@ int extent_server::remove(extent_protocol::extentid_t id, std::string cid, int &
     id &= 0x7fffffff;
     im->remove_file(id);
     int r;
-    for (std::set<std::string>::iterator it = cset[id].begin(); it != cset[id].end(); it++) {
+    for (std::set<std::string>::iterator it = allc.begin(); it != allc.end(); it++) {
         handle(*it).safebind()->call(rextent_protocol::revoke, id, r);
     }
-    cset[id].clear();
-    cset.erase(id);
     return extent_protocol::OK;
 }
-
