@@ -1,3 +1,0 @@
-ps -ef | grep lock_server | grep -v grep | awk '{print $2}' | xargs kill -9
-./lock_server $1 &
-./lock_tester $1 
